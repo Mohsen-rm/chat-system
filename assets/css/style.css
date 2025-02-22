@@ -632,3 +632,98 @@ body {
 .message-content a:hover {
     text-decoration: underline;
 }
+
+/* تنسيق الفيديو */
+.video-container {
+    max-width: 400px;
+    margin: 10px 0;
+    background: var(--background-light);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+.video-preview {
+    width: 100%;
+    max-height: 300px;
+    border-radius: var(--border-radius);
+}
+
+/* تحديث تصميم حاوية التحكم بالفيديو */
+.video-controls {
+    padding: 12px;
+    display: flex;
+    justify-content: flex-end;
+    background: rgba(0, 0, 0, 0.05);
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* تحديث تصميم زر التنزيل */
+.download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #FFC300;
+    color: var(--text-primary);
+    border-radius: var(--border-radius);
+    text-decoration: none;
+    font-size: 0.9em;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-sm);
+}
+
+.download-btn:hover {
+    background: #e6b000; /* لون أغمق للتأثير */
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    text-decoration: none;
+    color: var(--text-primary);
+}
+
+/* تحديث تصميم رابط التنزيل في رسائل الملفات */
+.download-link {
+    color: #FFC300;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--border-radius);
+    background-color: rgba(255, 195, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.download-link:hover {
+    background-color: rgba(255, 195, 0, 0.2);
+    transform: translateY(-1px);
+    text-decoration: none;
+}
+
+/* تحسين مظهر حاوية الملفات */
+.file-message {
+    max-width: 300px;
+    margin: 10px 0;
+}
+
+.file-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.file-name {
+    font-weight: bold;
+    word-break: break-all;
+}
+
+.download-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.download-link:hover {
+    text-decoration: underline;
+}

@@ -82,7 +82,7 @@ if (!isset($_SESSION['user_id'])) {
                 <form id="message-form" class="message-form">
                     <div class="message-attachments">
                         <input type="file" id="file-upload" hidden 
-                               accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
+                               accept="image/*,video/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
                         <button type="button" class="btn-attachment" onclick="document.getElementById('file-upload').click()">
                             <i class="fas fa-paperclip"></i>
                         </button>

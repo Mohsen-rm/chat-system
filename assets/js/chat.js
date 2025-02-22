@@ -545,26 +545,28 @@ function renderFile(filePath, fileType, originalName) {
         `;
     } else if (fileType.startsWith('video/')) {
         return `
-            <video controls class="file-preview">
-                <source src="${filePath}" type="${fileType}">
-                فيديو غير مدعوم
-            </video>
-        `;
-    } else if (fileType.startsWith('audio/')) {
-        return `
-            <audio controls>
-                <source src="${filePath}" type="${fileType}">
-                ملف صوتي غير مدعوم
-            </audio>
+            <div class="video-container">
+                <video class="video-preview" controls>
+                    <source src="${filePath}" type="${fileType}">
+                    متصفحك لا يدعم تشغيل الفيديو.
+                </video>
+                <div class="video-controls">
+                    <a href="${filePath}" download="${originalName}" class="download-btn">
+                        <i class="fas fa-download"></i> تحميل الفيديو
+                    </a>
+                </div>
+            </div>
         `;
     } else {
-        const icon = getFileIcon(fileType);
         return `
             <div class="file-message">
-                <i class="fas ${icon}"></i>
-                <a href="${filePath}" download="${originalName}">
-                    ${originalName}
-                </a>
+                <i class="fas ${getFileIcon(fileType)} fa-2x"></i>
+                <div class="file-info">
+                    <span class="file-name">${originalName}</span>
+                    <a href="${filePath}" download="${originalName}" class="download-link">
+                        تحميل الملف <i class="fas fa-download"></i>
+                    </a>
+                </div>
             </div>
         `;
     }

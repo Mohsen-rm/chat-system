@@ -1,9 +1,16 @@
 <?php
 // إعدادات التطبيق
 define('APP_NAME', 'نظام الدردشة');
-define('APP_URL', 'http://localhost/chat-system');
+
+// تحديد URL التطبيق ديناميكياً
+$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
+$host = $_SERVER['HTTP_HOST'];
+$baseDir = dirname(dirname($_SERVER['SCRIPT_NAME']));
+$baseDir = rtrim($baseDir, '/');
+define('APP_URL', $protocol . $host . $baseDir);
+
 define('UPLOAD_DIR', __DIR__ . '/../uploads/');
-define('MAX_FILE_SIZE', 5 * 1024 * 1024); // 5 MB
+define('MAX_FILE_SIZE', 500 * 1024 * 1024); // 500 MB
 
 // إعدادات الجلسة
 session_start();
@@ -29,6 +36,9 @@ function getAllowedFileTypes() {
         'image/jpeg' => 'jpg',
         'image/png' => 'png',
         'image/gif' => 'gif',
+        'video/mp4' => 'mp4',
+        'video/webm' => 'webm',
+        'video/quicktime' => 'mov',
         'application/pdf' => 'pdf',
         'application/msword' => 'doc',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
