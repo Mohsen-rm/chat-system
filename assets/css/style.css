@@ -454,7 +454,7 @@ body {
     gap: 10px;
     background: var(--background-light);
     padding: 10px;
-    border-radius: var(--border-radius);
+    border-radius: var (--border-radius);
     margin: 5px 0;
 }
 
@@ -578,4 +578,57 @@ body {
 @keyframes typing {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.5); }
+}
+
+/* تنسيق الأكواد والنصوص */
+.message-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.code-block {
+    background: #f8f8f8;
+    border-radius: 4px;
+    padding: 12px;
+    margin: 8px 0;
+    overflow-x: auto;
+    font-family: 'Courier New', Courier, monospace;
+    direction: ltr;
+    text-align: left;
+}
+
+.code-block code {
+    display: block;
+    color: #333;
+    line-height: 1.5;
+}
+
+.inline-code {
+    background: #f0f0f0;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: 'Courier New', Courier, monospace;
+    color: #e83e8c;
+    direction: ltr;
+    display: inline-block;
+}
+
+/* تحسين مظهر الرسائل */
+.message-content {
+    padding: 8px 12px;
+    line-height: 1.5;
+}
+
+.message.ai-message .message-content {
+    background-color: var(--background-light);
+}
+
+/* تحسين مظهر الروابط */
+.message-content a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.message-content a:hover {
+    text-decoration: underline;
 }

@@ -222,15 +222,17 @@ function appendMessage(message) {
     if (!messagesContainer) return;
 
     const isOutgoing = message.user_id === currentUser.id;
+    const isAIMessage = message.user_id === 0;
+    
     const messageElement = document.createElement('div');
-    messageElement.className = `message ${isOutgoing ? 'outgoing' : 'incoming'}`;
+    messageElement.className = `message ${isOutgoing ? 'outgoing' : 'incoming'} ${isAIMessage ? 'ai-message' : ''}`;
     messageElement.setAttribute('data-message-id', message.id);
     
     let messageContent = '';
     if (message.file_path) {
         messageContent = renderFile(message.file_path, message.file_type, message.original_name);
     } else {
-        messageContent = `<p>${formatMessageText(message.content)}</p>`;
+        messageContent = `<div class="message-text">${formatMessageText(message.content)}</div>`;
     }
     
     messageElement.innerHTML = `
@@ -238,6 +240,7 @@ function appendMessage(message) {
             <div class="message-sender-info">
                 <span class="user-avatar small">${getInitials(message.user_name)}</span>
                 <span class="message-sender">${message.user_name}</span>
+                ${isAIMessage ? '<span class="ai-badge"><i class="fas fa-robot"></i></span>' : ''}
             </div>
             <span class="message-time" title="${formatFullDate(message.created_at)}">
                 ${formatTime(message.created_at)}
@@ -340,11 +343,40 @@ async function handleMessageSubmit(e) {
                 messageUpdateInterval = setInterval(loadMessages, 3000);
             }
         } else {
-            // كود إرسال الرسائل العادية...
+            // إرسال رسالة عادية
+            const response = await fetch('api/send_message.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    room_id: currentRoom,
+                    message: message
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                // إضافة الرسالة مباشرة للعرض
+                const newMessage = {
+                    id: result.message_id,
+                    content: message,
+                    user_id: currentUser.id,
+                    user_name: currentUser.name,
+                    created_at: new Date().toISOString()
+                };
+                
+                input.value = '';
+                appendMessage(newMessage);
+                scrollToBottom();
+            } else {
+                throw new Error(result.error || 'فشل في إرسال الرسالة');
+            }
         }
     } catch (error) {
         console.error('Error sending message:', error);
-        showNotification('فشل في إرسال الرسالة', 'error');
+        showNotification(error.message || 'فشل في إرسال الرسالة', 'error');
     } finally {
         input.disabled = false;
         sendButton.disabled = false;
@@ -438,16 +470,39 @@ async function loadUsers() {
 }
 
 function formatMessageText(text) {
-    // تحويل الروابط إلى روابط قابلة للنقر
-    text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-    
-    // تحويل الإيموجي
-    text = text.replace(/:\)/g, '😊')
-               .replace(/:\(/g, '😢')
-               .replace(/:D/g, '😃')
-               .replace(/\<3/g, '❤️');
-    
+    if (!text) return '';
+
+    // تحديد الأكواد المحاطة بعلامات الاقتباس ```
+    text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, function(match, language, code) {
+        return `<pre class="code-block ${language}"><code>${escapeHtml(code.trim())}</code></pre>`;
+    });
+
+    // تحديد الأكواد المحاطة بعلامة اقتباس واحدة `
+    text = text.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+
+    // الحفاظ على المسافات والأسطر الجديدة
+    text = text.split('\n').map(line => {
+        // تحويل الروابط إلى روابط قابلة للنقر
+        line = line.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+        
+        // تحويل الإيموجي
+        line = line.replace(/:\)/g, '😊')
+                  .replace(/:\(/g, '😢')
+                  .replace(/:D/g, '😃')
+                  .replace(/\<3/g, '❤️');
+        
+        // الحفاظ على المسافات المتعددة
+        return line.replace(/  /g, '&nbsp;&nbsp;');
+    }).join('<br>');
+
     return text;
+}
+
+// إضافة دالة مساعدة لتأمين النص HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function formatTime(timestamp) {
