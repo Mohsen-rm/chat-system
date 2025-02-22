@@ -22,3 +22,35 @@ function redirect($path) {
 function sanitize($string) {
     return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
 }
+
+// File handling helper functions
+function getAllowedFileTypes() {
+    return [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'application/pdf' => 'pdf',
+        'application/msword' => 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+        'text/plain' => 'txt'
+    ];
+}
+
+function validateFile($file) {
+    $errors = [];
+    
+    if ($file['size'] > MAX_FILE_SIZE) {
+        $errors[] = 'حجم الملف يتجاوز الحد المسموح به';
+    }
+    
+    if (!in_array($file['type'], array_keys(getAllowedFileTypes()))) {
+        $errors[] = 'نوع الملف غير مسموح به';
+    }
+    
+    return $errors;
+}
+
+function generateSecureFileName($originalName, $fileType) {
+    $extension = getAllowedFileTypes()[$fileType];
+    return uniqid() . '_' . time() . '.' . $extension;
+}

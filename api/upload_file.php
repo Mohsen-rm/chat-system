@@ -1,56 +1,73 @@
 <?php
-session_start();
+require_once '../config/config.php';
 require_once '../config/database.php';
 
-if (!isset($_SESSION['user_id'])) {
+if (!isLoggedIn()) {
     http_response_code(401);
-    die(json_encode(['error' => 'غير مصرح']));
+    die(json_encode(['success' => false, 'message' => 'غير مصرح']));
 }
 
-if (!isset($_FILES['file']) || !isset($_POST['room_id'])) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    die(json_encode(['success' => false, 'message' => 'طريقة غير مسموح بها']));
+}
+
+try {
+    if (!isset($_FILES['file']) || !isset($_POST['room_id'])) {
+        throw new Exception('البيانات المطلوبة غير مكتملة');
+    }
+
+    $file = $_FILES['file'];
+    $roomId = (int)$_POST['room_id'];
+    
+    // Validate file
+    $errors = validateFile($file);
+    if (!empty($errors)) {
+        throw new Exception(implode(', ', $errors));
+    }
+    
+    // Create secure filename and move file
+    $fileName = generateSecureFileName($file['name'], $file['type']);
+    $uploadPath = UPLOAD_DIR . $fileName;
+    
+    if (!is_dir(UPLOAD_DIR)) {
+        mkdir(UPLOAD_DIR, 0777, true);
+    }
+    
+    if (!move_uploaded_file($file['tmp_name'], $uploadPath)) {
+        throw new Exception('فشل في رفع الملف');
+    }
+    
+    // Save to database
+    $stmt = $db->prepare("
+        INSERT INTO messages (room_id, user_id, content, file_path, file_type, original_name, file_size)
+        VALUES (?, ?, NULL, ?, ?, ?, ?)
+    ");
+    
+    $stmt->execute([
+        $roomId,
+        $_SESSION['user_id'],
+        'uploads/' . $fileName,
+        $file['type'],
+        $file['name'],
+        $file['size']
+    ]);
+    
+    echo json_encode([
+        'success' => true,
+        'file' => [
+            'path' => 'uploads/' . $fileName,
+            'type' => $file['type'],
+            'name' => $file['name'],
+            'size' => $file['size']
+        ]
+    ]);
+
+} catch (Exception $e) {
     http_response_code(400);
-    die(json_encode(['error' => 'بيانات غير مكتملة']));
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage()
+    ]);
 }
-
-$file = $_FILES['file'];
-$room_id = $_POST['room_id'];
-
-// التحقق من نوع الملف
-$allowed_types = [
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'video/mp4',
-    'audio/mpeg',
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-];
-
-if (!in_array($file['type'], $allowed_types)) {
-    http_response_code(400);
-    die(json_encode(['error' => 'نوع الملف غير مسموح به']));
-}
-
-// إنشاء مجلد التحميلات إذا لم يكن موجوداً
-$upload_dir = __DIR__ . '/../uploads';
-if (!file_exists($upload_dir)) {
-    mkdir($upload_dir, 0777, true);
-}
-
-// إنشاء اسم فريد للملف
-$file_extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-$file_name = uniqid() . '.' . $file_extension;
-$file_path = 'uploads/' . $file_name;
-
-if (move_uploaded_file($file['tmp_name'], __DIR__ . '/../' . $file_path)) {
-    try {
-        $stmt = $db->prepare("
-            INSERT INTO messages (room_id, user_id, content, file_path, file_type) 
-            VALUES (?, ?, ?, ?, ?)
-        ");
-        $stmt->execute([
-            $room_id,
-            $_SESSION['user_id'],
-            $file['name'],
-            $file_
+?>

@@ -49,6 +49,7 @@ if (!isset($_SESSION['user_id'])) {
                     </h4>
                     <button id="create-room-btn" class="btn-create">
                         <i class="fas fa-plus"></i>
+                        غرفة جديدة
                     </button>
                 </div>
                 <div id="rooms-list" class="rooms-list"></div>
@@ -81,8 +82,8 @@ if (!isset($_SESSION['user_id'])) {
                 <form id="message-form" class="message-form">
                     <div class="message-attachments">
                         <input type="file" id="file-upload" hidden 
-                               accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt">
-                        <button type="button" class="btn-attachment">
+                               accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
+                        <button type="button" class="btn-attachment" onclick="document.getElementById('file-upload').click()">
                             <i class="fas fa-paperclip"></i>
                         </button>
                     </div>
@@ -104,6 +105,7 @@ if (!isset($_SESSION['user_id'])) {
             isGuest: <?php echo isset($_SESSION['is_guest']) ? 'true' : 'false'; ?>
         };
     </script>
+    <script src="assets/js/ai-chat.js"></script>
     <script src="assets/js/chat.js"></script>
 </body>
 </html>

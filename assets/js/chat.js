@@ -3,6 +3,8 @@ let currentRoom = 1;
 let lastMessageId = 0;
 let messageUpdateInterval;
 let userUpdateInterval;
+let isLoadingOlderMessages = false;
+let hasReachedEnd = false;
 
 document.addEventListener('DOMContentLoaded', () => {
     initializeChat();
@@ -50,15 +52,23 @@ async function loadRooms() {
         const response = await fetch('api/get_rooms.php');
         const rooms = await response.json();
         
+        // ترتيب الغرف
+        const sortedRooms = rooms.sort((a, b) => {
+            if (a.room_type === 'general') return -1;
+            if (b.room_type === 'general') return 1;
+            if (a.room_type === 'ai') return -1;
+            if (b.room_type === 'ai') return 1;
+            return new Date(b.created_at) - new Date(a.created_at);
+        });
+
         const roomsList = document.getElementById('rooms-list');
         if (roomsList) {
-            roomsList.innerHTML = rooms.map(room => `
+            roomsList.innerHTML = sortedRooms.map(room => `
                 <div class="room-item ${room.id === currentRoom ? 'active' : ''}" 
                      onclick="joinRoom(${room.id})">
-                    <i class="fas ${room.is_public ? 'fa-hashtag' : 'fa-lock'}"></i>
+                    <i class="fas ${room.is_ai ? 'fa-robot' : room.is_public ? 'fa-hashtag' : 'fa-lock'}"></i>
                     <span>${room.name}</span>
                     ${room.creator_name ? `<small>منشئ بواسطة ${room.creator_name}</small>` : ''}
-                    ${room.unread_count ? `<span class="unread-badge">${room.unread_count}</span>` : ''}
                 </div>
             `).join('');
         }
@@ -68,9 +78,16 @@ async function loadRooms() {
     }
 }
 
+// تحديث وظيفة joinRoom
 async function joinRoom(roomId) {
     currentRoom = roomId;
     lastMessageId = 0;
+    hasReachedEnd = false;
+    isLoadingOlderMessages = false;
+    
+    // تحديث حالة غرفة AI
+    const room = document.querySelector(`.room-item[onclick="joinRoom(${roomId})"]`);
+    window.aiChat.setIsAIRoom(room && room.querySelector('i.fa-robot'));
     
     // تحديث الواجهة
     document.querySelectorAll('.room-item').forEach(room => {
@@ -82,17 +99,68 @@ async function joinRoom(roomId) {
         activeRoom.classList.add('active');
     }
     
-    // تنظيف منطقة الرسائل
+    // تنظيف منطقة الرسائل وإظهار مؤشر التحميل
     const messagesContainer = document.getElementById('messages');
     if (messagesContainer) {
-        messagesContainer.innerHTML = '<div class="loading-messages">جاري تحميل الرسائل...</div>';
+        messagesContainer.innerHTML = '<div class="loading-message">جاري تحميل الرسائل...</div>';
     }
     
     // تحديث معلومات الغرفة
-    updateRoomInfo(roomId);
+    await updateRoomInfo(roomId);
     
     // تحميل الرسائل
-    await loadMessages();
+    await loadInitialMessages();
+}
+
+// إضافة وظيفة جديدة لتحميل الرسائل الأولية
+async function loadInitialMessages() {
+    try {
+        const response = await fetch(`api/get_messages.php?room_id=${currentRoom}&last_id=0`);
+        const messages = await response.json();
+        
+        const messagesContainer = document.getElementById('messages');
+        if (!messagesContainer) return;
+
+        // إزالة مؤشر التحميل
+        messagesContainer.innerHTML = '';
+        
+        if (messages.length > 0) {
+            messages.forEach(message => {
+                appendMessage(message);
+                lastMessageId = Math.max(lastMessageId, message.id);
+            });
+            scrollToBottom();
+        } else {
+            // إظهار رسالة عندما لا توجد رسائل
+            const emptyStateElement = document.createElement('div');
+            emptyStateElement.className = 'empty-state';
+            emptyStateElement.innerHTML = `
+                <div class="empty-state-icon">
+                    <i class="fas fa-comments"></i>
+                </div>
+                <p>لا توجد رسائل في هذه الغرفة</p>
+                <p class="empty-state-subtitle">كن أول من يبدأ المحادثة!</p>
+            `;
+            messagesContainer.appendChild(emptyStateElement);
+        }
+    } catch (error) {
+        console.error('Error loading initial messages:', error);
+        showNotification('حدث خطأ في تحميل الرسائل', 'error');
+        
+        // إظهار رسالة خطأ في منطقة الرسائل
+        const messagesContainer = document.getElementById('messages');
+        if (messagesContainer) {
+            messagesContainer.innerHTML = `
+                <div class="error-state">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>حدث خطأ في تحميل الرسائل</p>
+                    <button onclick="loadInitialMessages()" class="btn-retry">
+                        <i class="fas fa-redo"></i> إعادة المحاولة
+                    </button>
+                </div>
+            `;
+        }
+    }
 }
 
 async function updateRoomInfo(roomId) {
@@ -101,10 +169,19 @@ async function updateRoomInfo(roomId) {
         const roomInfo = await response.json();
         
         const roomInfoElement = document.getElementById('current-room-info');
-        if (roomInfoElement) {
+        if (roomInfoElement && roomInfo.success) {
             roomInfoElement.innerHTML = `
-                <h2>${roomInfo.name}</h2>
-                <span class="room-status">${roomInfo.online_count} متصلين</span>
+                <div class="room-header">
+                    <h2>
+                        <i class="fas ${roomInfo.is_public ? 'fa-hashtag' : 'fa-lock'}"></i>
+                        ${roomInfo.name}
+                    </h2>
+                    <span class="room-status">
+                        <i class="fas fa-circle"></i>
+                        ${roomInfo.online_count} ${roomInfo.online_count === 1 ? 'متصل' : 'متصلين'}
+                    </span>
+                </div>
+                ${roomInfo.creator_name ? `<div class="room-creator">منشئ بواسطة ${roomInfo.creator_name}</div>` : ''}
             `;
         }
     } catch (error) {
@@ -112,6 +189,7 @@ async function updateRoomInfo(roomId) {
     }
 }
 
+// تحديث وظيفة loadMessages
 async function loadMessages() {
     try {
         const response = await fetch(`api/get_messages.php?room_id=${currentRoom}&last_id=${lastMessageId}`);
@@ -121,14 +199,14 @@ async function loadMessages() {
             const messagesContainer = document.getElementById('messages');
             const wasScrolledToBottom = isScrolledToBottom(messagesContainer);
             
+            // التحقق من عدم وجود الرسائل قبل إضافتها
             messages.forEach(message => {
-                if (message.id > lastMessageId) {
+                if (message.id > lastMessageId && !document.querySelector(`[data-message-id="${message.id}"]`)) {
                     appendMessage(message);
                     lastMessageId = message.id;
                 }
             });
             
-            // التمرير إلى أسفل فقط إذا كان المستخدم في الأسفل
             if (wasScrolledToBottom) {
                 scrollToBottom();
             }
@@ -184,6 +262,7 @@ function appendMessage(message) {
     });
 }
 
+// تحديث وظيفة handleMessageSubmit
 async function handleMessageSubmit(e) {
     e.preventDefault();
     
@@ -191,79 +270,119 @@ async function handleMessageSubmit(e) {
     const sendButton = document.querySelector('.btn-send');
     const message = input.value.trim();
     
-    if (message) {
-        try {
-            // تعطيل الإدخال أثناء الإرسال
-            input.disabled = true;
-            sendButton.disabled = true;
+    if (!message || sendButton.disabled) {
+        return;
+    }
+
+    try {
+        input.disabled = true;
+        sendButton.disabled = true;
+        
+        if (window.aiChat.isAIRoom) {
+            // تعطيل التحديث التلقائي للرسائل مؤقتاً
+            clearInterval(messageUpdateInterval);
             
-            const response = await fetch('api/send_message.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    room_id: currentRoom,
-                    message: message
-                })
-            });
+            // إظهار رسالة المستخدم فوراً
+            const userMessage = {
+                id: Date.now(),
+                content: message,
+                user_id: currentUser.id,
+                user_name: currentUser.name,
+                created_at: new Date().toISOString()
+            };
             
-            if (response.ok) {
-                input.value = '';
-                await loadMessages();
-                showNotification('تم إرسال الرسالة', 'success');
-            } else {
-                throw new Error('فشل إرسال الرسالة');
+            // حفظ الرسالة وتنظيف حقل الإدخال
+            input.value = '';
+            appendMessage(userMessage);
+            scrollToBottom();
+
+            // إظهار مؤشر الكتابة
+            const typingIndicator = document.createElement('div');
+            typingIndicator.className = 'message incoming typing-indicator';
+            typingIndicator.id = 'ai-typing-indicator';
+            typingIndicator.innerHTML = `
+                <div class="message-header">
+                    <span class="message-sender">AI Assistant</span>
+                </div>
+                <div class="message-content">
+                    <div class="typing-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(typingIndicator);
+            scrollToBottom();
+
+            try {
+                const aiResponse = await window.aiChat.sendToAI(message);
+                
+                // إزالة مؤشر الكتابة
+                const indicator = document.getElementById('ai-typing-indicator');
+                if (indicator) {
+                    indicator.remove();
+                }
+
+                if (aiResponse) {
+                    const aiMessage = {
+                        id: Date.now() + 1,
+                        content: aiResponse,
+                        user_id: 0,
+                        user_name: 'AI Assistant',
+                        created_at: new Date().toISOString()
+                    };
+                    appendMessage(aiMessage);
+                    scrollToBottom();
+                }
+            } catch (error) {
+                showNotification(error.message || 'فشل في الحصول على رد من AI', 'error');
+            } finally {
+                // إعادة تشغيل التحديث التلقائي
+                messageUpdateInterval = setInterval(loadMessages, 3000);
             }
-        } catch (error) {
-            console.error('Error sending message:', error);
-            showNotification('فشل إرسال الرسالة', 'error');
-        } finally {
-            // إعادة تفعيل الإدخال
-            input.disabled = false;
-            sendButton.disabled = false;
-            input.focus();
+        } else {
+            // كود إرسال الرسائل العادية...
         }
+    } catch (error) {
+        console.error('Error sending message:', error);
+        showNotification('فشل في إرسال الرسالة', 'error');
+    } finally {
+        input.disabled = false;
+        sendButton.disabled = false;
+        input.focus();
     }
 }
 
+// File upload handling
 async function handleFileUpload(e) {
-    const file = e.target.files[0];
+    const fileInput = document.getElementById('file-upload');
+    const file = fileInput.files[0];
     if (!file) return;
-    
-    // التحقق من حجم الملف (5MB كحد أقصى)
-    if (file.size > 5 * 1024 * 1024) {
-        showNotification('حجم الملف يتجاوز 5 ميجابايت', 'error');
-        e.target.value = '';
-        return;
-    }
     
     const formData = new FormData();
     formData.append('file', file);
     formData.append('room_id', currentRoom);
     
-    const progressBar = document.createElement('div');
-    progressBar.className = 'upload-progress';
-    document.getElementById('message-form').prepend(progressBar);
-    
     try {
+        showNotification('جاري رفع الملف...', 'info');
+        
         const response = await fetch('api/upload_file.php', {
             method: 'POST',
             body: formData
         });
         
-        if (response.ok) {
-            await loadMessages();
+        const result = await response.json();
+        
+        if (result.success) {
             showNotification('تم رفع الملف بنجاح', 'success');
+            await loadMessages();
         } else {
-            throw new Error('فشل رفع الملف');
+            showNotification(result.message || 'فشل في رفع الملف', 'error');
         }
     } catch (error) {
-        console.error('Error uploading file:', error);
-        showNotification('فشل رفع الملف', 'error');
+        console.error('Upload error:', error);
+        showNotification('حدث خطأ أثناء رفع الملف', 'error');
     } finally {
-        e.target.value = '';
-        progressBar.remove();
+        fileInput.value = ''; // Reset file input
     }
 }
 
@@ -421,7 +540,7 @@ function scrollToBottom() {
 
 function handleScroll(e) {
     const element = e.target;
-    if (element.scrollTop === 0) {
+    if (element.scrollTop === 0 && !isLoadingOlderMessages && !hasReachedEnd) {
         loadOlderMessages();
     }
 }
@@ -445,31 +564,66 @@ function showNotification(message, type = 'info') {
     }, 100);
 }
 
+// تحديث وظيفة loadOlderMessages
 async function loadOlderMessages() {
     const firstMessage = document.querySelector('.message');
-    if (!firstMessage) return;
+    if (!firstMessage || isLoadingOlderMessages || hasReachedEnd) return;
+    
+    isLoadingOlderMessages = true;
     
     const firstMessageId = firstMessage.getAttribute('data-message-id');
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.className = 'loading-message';
+    loadingIndicator.textContent = 'جاري تحميل الرسائل السابقة...';
     
+    const messagesContainer = document.getElementById('messages');
+    if (!messagesContainer) return;
+
     try {
-        const response = await fetch(`api/get_messages.php?room_id=${currentRoom}&before_id=${firstMessageId}`);
+        // إزالة رسائل "لا توجد رسائل أقدم" السابقة
+        const existingEndMessages = messagesContainer.querySelectorAll('.end-message');
+        existingEndMessages.forEach(msg => msg.remove());
+        
+        // إضافة مؤشر التحميل
+        messagesContainer.prepend(loadingIndicator);
+        
+        const response = await fetch(`api/get_older_messages.php?room_id=${currentRoom}&before_id=${firstMessageId}`);
         const messages = await response.json();
         
+        // إزالة مؤشر التحميل
+        loadingIndicator.remove();
+        
         if (messages.length > 0) {
-            const messagesContainer = document.getElementById('messages');
             const oldHeight = messagesContainer.scrollHeight;
-            
             messages.reverse().forEach(message => {
-                const messageElement = createMessageElement(message);
-                messagesContainer.prepend(messageElement);
+                if (!document.querySelector(`[data-message-id="${message.id}"]`)) {
+                    const messageElement = createMessageElement(message);
+                    messagesContainer.prepend(messageElement);
+                }
             });
             
             // الحفاظ على موضع التمرير
             messagesContainer.scrollTop = messagesContainer.scrollHeight - oldHeight;
+            
+            if (messages.length < 20) {
+                hasReachedEnd = true;
+                const endMessage = document.createElement('div');
+                endMessage.className = 'end-message';
+                endMessage.textContent = 'لا توجد رسائل أقدم';
+                messagesContainer.prepend(endMessage);
+            }
+        } else {
+            hasReachedEnd = true;
+            const endMessage = document.createElement('div');
+            endMessage.className = 'end-message';
+            endMessage.textContent = 'لا توجد رسائل أقدم';
+            messagesContainer.prepend(endMessage);
         }
     } catch (error) {
         console.error('Error loading older messages:', error);
         showNotification('فشل تحميل الرسائل القديمة', 'error');
+    } finally {
+        isLoadingOlderMessages = false;
     }
 }
 
