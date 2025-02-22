@@ -1,0 +1,31 @@
+chat-system/
+├── api/
+│   ├── create_room.php
+│   ├── get_messages.php
+│   ├── get_rooms.php
+│   ├── get_users.php
+│   ├── send_message.php
+│   └── upload_file.php
+├── assets/
+│   ├── css/
+│   │   └── style.css
+│   └── js/
+│       └── chat.js
+├── auth/
+│   ├── login.php
+│   ├── register.php
+│   ├── guest.php
+│   └── logout.php
+├── config/
+│   ├── database.php
+│   └── config.php
+├── database/
+│   └── .gitkeep
+├── includes/
+│   ├── header.php
+│   └── footer.php
+├── uploads/
+│   └── .gitkeep
+├── .gitignore
+├── README.md
+└── index.php

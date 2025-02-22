@@ -1,0 +1,21 @@
+# Database
+database/*.db
+
+# Uploaded files
+uploads/*
+!uploads/.gitkeep
+
+# Configuration
+config/local.php
+
+# IDE files
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Composer
+vendor/
+composer.lock
